@@ -19,17 +19,19 @@ def main():
     n_iterations = 10000
     expected_game_value = 0
 
+    players = ('Alice', 'Bob')
+
     for _ in range(n_iterations):
-        expected_game_value += cfr(i_map)
+        expected_game_value += cfr(i_map, players)
         for _, v in i_map.items():
             v.next_strategy()
 
     expected_game_value /= n_iterations
 
-    display_results(expected_game_value, i_map)
+    display_results(expected_game_value, i_map, players)
 
 
-def cfr(i_map, history="", cards=None, pr_1=1, pr_2=1, pr_c=1):
+def cfr(i_map, players, history="", cards=None, pr_1=1, pr_2=1, pr_c=1):
     """
     Counterfactual regret minimization algorithm.
 
@@ -56,14 +58,15 @@ def cfr(i_map, history="", cards=None, pr_1=1, pr_2=1, pr_c=1):
         The probability contribution of chance events to reach `history`.
     """
     if is_chance_node(history):
-        return chance_util(i_map)
+        return chance_util(i_map, players)
 
     if is_terminal(history):
         return terminal_util(history, cards)
 
     n = len(history)
-    is_player_1 = n % 2 == 0
-    info_set = get_info_set(i_map, cards[0] if is_player_1 else cards[1], history)
+    player_to_act_index = n % len(players)
+    is_player_1 = player_to_act_index == 0
+    info_set = get_info_set(i_map, cards[player_to_act_index], history)
 
     strategy = info_set.strategy
     if is_player_1:
@@ -77,11 +80,11 @@ def cfr(i_map, history="", cards=None, pr_1=1, pr_2=1, pr_c=1):
     for i, action in enumerate(["c", "b"]):
         next_history = history + action
         if is_player_1:
-            action_utils[i] = -1 * cfr(i_map, next_history,
+            action_utils[i] = -1 * cfr(i_map, players, next_history,
                                        cards,
                                        pr_1 * strategy[i], pr_2, pr_c)
         else:
-            action_utils[i] = -1 * cfr(i_map, next_history,
+            action_utils[i] = -1 * cfr(i_map, players, next_history,
                                        cards,
                                        pr_1, pr_2 * strategy[i], pr_c)
 
@@ -103,13 +106,13 @@ def is_chance_node(history):
     return history == ""
 
 
-def chance_util(i_map):
+def chance_util(i_map, players):
     expected_value = 0
     n_possibilities = 6
     for i in range(_N_CARDS):
         for j in range(_N_CARDS):
             if i != j:
-                expected_value += cfr(i_map, "rr", (i,j), 1, 1, 1/n_possibilities)
+                expected_value += cfr(i_map, players, "rr", (i,j), 1, 1, 1/n_possibilities)
     return expected_value/n_possibilities
 
 
@@ -215,19 +218,18 @@ class InformationSet():
         return '{} {}'.format(self.key.ljust(6), strategies)
 
 
-def display_results(ev, i_map):
+def display_results(ev, i_map, players):
     print('player 1 expected value: {}'.format(ev))
     print('player 2 expected value: {}'.format(-1 * ev))
 
-    print()
-    print('player 1 strategies:')
     sorted_items = sorted(i_map.items(), key=lambda x: x[0])
-    for _, v in filter(lambda x: len(x[0]) % 2 == 0, sorted_items):
-        print(v)
-    print()
-    print('player 2 strategies:')
-    for _, v in filter(lambda x: len(x[0]) % 2 == 1, sorted_items):
-        print(v)
+
+    for player_index, player in enumerate(players):
+        print()
+        print('{} strategies:'.format(player))
+
+        for _, v in filter(lambda x: len(x[0]) % len(players) == player_index, sorted_items):
+            print(v)
 
 
 if __name__ == "__main__":
