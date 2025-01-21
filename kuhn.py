@@ -50,10 +50,8 @@ def cfr(i_map, players, history="", cards=None, prs=(1,1), pr_c=1):
 
     cards : a tuple containing integers representing each player's cards
 
-    pr_1 : (0, 1.0), float
-        The probability that player A reaches `history`.
-    pr_2 : (0, 1.0), float
-        The probability that player B reaches `history`.
+    prs : a tuple of the probabilities that player <index>'s choices reach `history`.
+
     pr_c: (0, 1.0), float
         The probability contribution of chance events to reach `history`.
     """
@@ -68,8 +66,6 @@ def cfr(i_map, players, history="", cards=None, prs=(1,1), pr_c=1):
     is_player_1 = player_to_act_index == 0
     info_set = get_info_set(i_map, cards[player_to_act_index], history)
 
-    pr_1, pr_2 = prs
-
     strategy = info_set.strategy
     info_set.reach_pr += prs[player_to_act_index]
 
@@ -78,22 +74,18 @@ def cfr(i_map, players, history="", cards=None, prs=(1,1), pr_c=1):
 
     for i, action in enumerate(["c", "b"]):
         next_history = history + action
-        if is_player_1:
-            action_utils[i] = -1 * cfr(i_map, players, next_history,
-                                       cards,
-                                       (pr_1 * strategy[i], pr_2), pr_c)
-        else:
-            action_utils[i] = -1 * cfr(i_map, players, next_history,
-                                       cards,
-                                       (pr_1, pr_2 * strategy[i]), pr_c)
+        next_prs = prs[:player_to_act_index] + (prs[player_to_act_index] * strategy[i],) + prs[player_to_act_index + 1:]
+
+        action_utils[i] = -1 * cfr(i_map, players, next_history, cards, next_prs, pr_c)
 
     # Utility of information set.
     util = sum(action_utils * strategy)
     regrets = action_utils - util
-    if is_player_1:
-        info_set.regret_sum += prs[1] * pr_c * regrets
-    else:
-        info_set.regret_sum += prs[0] * pr_c * regrets
+
+    # The reach probability due to other players' actions
+    reach_probability = np.prod(prs[:player_to_act_index] + prs[player_to_act_index + 1:])
+
+    info_set.regret_sum += reach_probability * pr_c * regrets
 
     return util
 
