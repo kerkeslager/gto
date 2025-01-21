@@ -31,7 +31,7 @@ def main():
     display_results(expected_game_value, i_map, players)
 
 
-def cfr(i_map, players, history="", cards=None, pr_1=1, pr_2=1, pr_c=1):
+def cfr(i_map, players, history="", cards=None, prs=(1,1), pr_c=1):
     """
     Counterfactual regret minimization algorithm.
 
@@ -68,11 +68,10 @@ def cfr(i_map, players, history="", cards=None, pr_1=1, pr_2=1, pr_c=1):
     is_player_1 = player_to_act_index == 0
     info_set = get_info_set(i_map, cards[player_to_act_index], history)
 
+    pr_1, pr_2 = prs
+
     strategy = info_set.strategy
-    if is_player_1:
-        info_set.reach_pr += pr_1
-    else:
-        info_set.reach_pr += pr_2
+    info_set.reach_pr += prs[player_to_act_index]
 
     # Counterfactual utility per action.
     action_utils = np.zeros(_N_ACTIONS)
@@ -82,19 +81,19 @@ def cfr(i_map, players, history="", cards=None, pr_1=1, pr_2=1, pr_c=1):
         if is_player_1:
             action_utils[i] = -1 * cfr(i_map, players, next_history,
                                        cards,
-                                       pr_1 * strategy[i], pr_2, pr_c)
+                                       (pr_1 * strategy[i], pr_2), pr_c)
         else:
             action_utils[i] = -1 * cfr(i_map, players, next_history,
                                        cards,
-                                       pr_1, pr_2 * strategy[i], pr_c)
+                                       (pr_1, pr_2 * strategy[i]), pr_c)
 
     # Utility of information set.
     util = sum(action_utils * strategy)
     regrets = action_utils - util
     if is_player_1:
-        info_set.regret_sum += pr_2 * pr_c * regrets
+        info_set.regret_sum += prs[1] * pr_c * regrets
     else:
-        info_set.regret_sum += pr_1 * pr_c * regrets
+        info_set.regret_sum += prs[0] * pr_c * regrets
 
     return util
 
@@ -112,7 +111,7 @@ def chance_util(i_map, players):
     for i in range(_N_CARDS):
         for j in range(_N_CARDS):
             if i != j:
-                expected_value += cfr(i_map, players, "rr", (i,j), 1, 1, 1/n_possibilities)
+                expected_value += cfr(i_map, players, "rr", (i,j), (1,1), 1/n_possibilities)
     return expected_value/n_possibilities
 
 
