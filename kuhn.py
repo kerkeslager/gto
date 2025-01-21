@@ -29,7 +29,7 @@ def main():
     display_results(expected_game_value, i_map)
 
 
-def cfr(i_map, history="", card_1=-1, card_2=-1, pr_1=1, pr_2=1, pr_c=1):
+def cfr(i_map, history="", cards=None, pr_1=1, pr_2=1, pr_c=1):
     """
     Counterfactual regret minimization algorithm.
 
@@ -43,12 +43,11 @@ def cfr(i_map, history="", card_1=-1, card_2=-1, pr_1=1, pr_2=1, pr_c=1):
         Each character of the string represents a single action:
 
         'r': random chance action
-        'c': check action
-        'b': bet action
-    card_1 : (0, 2), int
-        player A's card
-    card_2 : (0, 2), int
-        player B's card
+        'c': check/fold action
+        'b': bet/call action
+
+    cards : a tuple containing integers representing each player's cards
+
     pr_1 : (0, 1.0), float
         The probability that player A reaches `history`.
     pr_2 : (0, 1.0), float
@@ -60,11 +59,11 @@ def cfr(i_map, history="", card_1=-1, card_2=-1, pr_1=1, pr_2=1, pr_c=1):
         return chance_util(i_map)
 
     if is_terminal(history):
-        return terminal_util(history, card_1, card_2)
+        return terminal_util(history, cards)
 
     n = len(history)
     is_player_1 = n % 2 == 0
-    info_set = get_info_set(i_map, card_1 if is_player_1 else card_2, history)
+    info_set = get_info_set(i_map, cards[0] if is_player_1 else cards[1], history)
 
     strategy = info_set.strategy
     if is_player_1:
@@ -79,11 +78,11 @@ def cfr(i_map, history="", card_1=-1, card_2=-1, pr_1=1, pr_2=1, pr_c=1):
         next_history = history + action
         if is_player_1:
             action_utils[i] = -1 * cfr(i_map, next_history,
-                                       card_1, card_2,
+                                       cards,
                                        pr_1 * strategy[i], pr_2, pr_c)
         else:
             action_utils[i] = -1 * cfr(i_map, next_history,
-                                       card_1, card_2,
+                                       cards,
                                        pr_1, pr_2 * strategy[i], pr_c)
 
     # Utility of information set.
@@ -110,8 +109,7 @@ def chance_util(i_map):
     for i in range(_N_CARDS):
         for j in range(_N_CARDS):
             if i != j:
-                expected_value += cfr(i_map, "rr", i, j,
-                                      1, 1, 1/n_possibilities)
+                expected_value += cfr(i_map, "rr", (i,j), 1, 1, 1/n_possibilities)
     return expected_value/n_possibilities
 
 
@@ -124,13 +122,13 @@ def is_terminal(history):
     return history in possibilities
 
 
-def terminal_util(history, card_1, card_2):
+def terminal_util(history, cards):
     """
     Returns the utility of a terminal history.
     """
     n = len(history)
-    card_player = card_1 if n % 2 == 0 else card_2
-    card_opponent = card_2 if n % 2 == 0 else card_1
+    card_player = cards[0] if n % 2 == 0 else cards[1]
+    card_opponent = cards[1] if n % 2 == 0 else cards[0]
 
     if history == "rrcbc" or history == "rrbc":
         # Last player folded. The current player wins.
@@ -145,11 +143,7 @@ def terminal_util(history, card_1, card_2):
 
 
 def card_str(card):
-    if card == 0:
-        return "J"
-    elif card == 1:
-        return "Q"
-    return "K"
+    return 'QKA'[card]
 
 
 def get_info_set(i_map, card, history):
