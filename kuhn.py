@@ -63,7 +63,6 @@ def cfr(i_map, players, history="", cards=None, prs=(1,1), pr_c=1):
 
     n = len(history)
     player_to_act_index = n % len(players)
-    is_player_1 = player_to_act_index == 0
     info_set = get_info_set(i_map, cards[player_to_act_index], history)
 
     strategy = info_set.strategy
